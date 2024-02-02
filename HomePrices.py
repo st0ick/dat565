@@ -1,6 +1,10 @@
 from bs4 import BeautifulSoup
+import os
 import pandas as pd
 import re
+
+pd.set_option('display.max_rows', None)
+
 
 def removeWhiteSpace(location):
     newLocation = ""
@@ -25,46 +29,61 @@ def findDateOfSale(house):
 
 def findAreaAndRooms(house):
     area = house.find('div', class_='sold-property-listing__subheading sold-property-listing__area').text.strip().replace('\n','').replace(' ','') 
-    boarea = re.match(r'\d*', area).group()
-    rooms = re.search(r'(\d)\s+rum', area).group(1)
+
+    if boarea := re.match(r'\d*', area):
+        boarea = boarea.group()
+    else:
+        boarea = 'NaN'
+
     if totalArea := re.match(r'\d*[+]\d*', area):
-        return boarea, totalArea.group(), rooms
-    
-    return boarea, 'NaN', rooms
+        totalArea = totalArea.group()
+    else:
+        totalArea = 'NaN'
+
+    if rooms := re.search(r'(\d)\s+rum', area):
+        rooms = rooms.group(1)
+    else:
+        rooms = 'Nan'
+
+    return boarea, totalArea, rooms
+
+def findPlotArea(house):
+    plot = house.find('div', class_='sold-property-listing__land-area')
+    if plot is None:
+        return 'Nan'
+    plotArea = plot.text.strip().replace('2&nbsp;','').replace('m² tomt','')
+    return plotArea
 
 
-xf = 1
-f = open(f"kungalv_slutpriser/kungalv_slutpris_page_0{xf}.html", encoding='UTF-8')
+#xf = 2
+#file = open(f"kungalv_slutpriser/kungalv_slutpris_page_0{xf}.html", encoding='UTF-8')
 
 
 
-
-soup = BeautifulSoup(f, 'html.parser')
-x = 1
-a = chr(x)
-
-addresses = []
 
 df = pd.DataFrame()
 
-s = soup.find('ul',id='search-results')
-#for i, house in enumerate(s.find_all('li', class_='sold-results__normal-hit')):
-#    addresses.append( house.find('h2',class_='sold-property-listing__heading qa-selling-price-title hcl-card__title').text.strip()  )
-#df.loc[:,'Address'] = addresses
+#s = soup.find('ul',id='search-results')
+i = 0
+for filename in os.listdir('kungalv_slutpriser/'):
+    file = open('kungalv_slutpriser/'+filename, encoding='UTF-8')
+    soup = BeautifulSoup(file, 'html.parser')
+    table = soup.find('ul',id='search-results')
+    for house in table.find_all('li', class_='sold-results__normal-hit'):
+        df.loc[i, 'Address'] = findAddress(house).text.strip()
+        df.loc[i,'Location'] = findLocation(house).text.strip().replace('\n','') 
+        df.loc[i, 'Date of sale'] = findDateOfSale(house)
+        df.loc[i, 'Bo area (m²)'], df.loc[i, 'Total Area (m²)'], df.loc[i, 'Rooms']  = findAreaAndRooms(house)
+        #df.loc[i, 'Plot Area (m²)'] = house.find('div', class_='sold-property-listing__land-area').text.strip().replace('2&nbsp;','').replace('m² tomt','')
+        df.loc[i, 'Plot Area (m²)'] = findPlotArea(house)
+        df.loc[i, 'Closing price (kr)'] = house.find('span', class_='hcl-text hcl-text--medium').text.strip().replace('Slutpris ','').replace('2&nbsp;','').replace('kr','')
 
-for i, house in enumerate(s.find_all('li', class_='sold-results__normal-hit')):
-    df.loc[i, 'Address'] = findAddress(house).text.strip()
-    df.loc[i,'Location'] = findLocation(house).text.strip().replace('\n','') 
-    df.loc[i, 'Date of sale'] = findDateOfSale(house)
-    df.loc[i, 'Bo area (m²)'], df.loc[i, 'Total Area (m²)'], df.loc[i, 'Rooms']  = findAreaAndRooms(house)
-    df.loc[i, 'Plot Area (m²)'] = house.find('div', class_='sold-property-listing__land-area').text.strip().replace('2&nbsp;','').replace('m² tomt','')
+        i += 1
 
 
-test = s.find('div', class_='sold-property-listing__subheading sold-property-listing__area').text.replace('\n','').replace(' ','').strip()
-
-#m = re.match(r'\brum\b', test)
 print(df)
-#print(re.search(r'(\d)\s+rum', test).group(1))
+df.to_csv('result.csv')
+
 
 
 
