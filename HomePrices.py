@@ -23,9 +23,14 @@ def findLocation(house):
 def findDateOfSale(house):
     return house.find('span', class_='hcl-label hcl-label--state hcl-label--sold-at').text.strip()[5:]
 
-def findArea(house):
-    area = house.find('div', class_='sold-property-listing__subheading sold-property-listing__area').text.strip()
-    return area
+def findAreaAndRooms(house):
+    area = house.find('div', class_='sold-property-listing__subheading sold-property-listing__area').text.strip().replace('\n','').replace(' ','') 
+    boarea = re.match(r'\d*', area).group()
+    rooms = re.search(r'(\d)\s+rum', area).group(1)
+    if totalArea := re.match(r'\d*[+]\d*', area):
+        return boarea, totalArea.group(), rooms
+    
+    return boarea, 'NaN', rooms
 
 
 xf = 1
@@ -40,7 +45,7 @@ a = chr(x)
 
 addresses = []
 
-df = pd.DataFrame(columns=['Address', 'Location', 'Date of sale', 'Area'])
+df = pd.DataFrame()
 
 s = soup.find('ul',id='search-results')
 #for i, house in enumerate(s.find_all('li', class_='sold-results__normal-hit')):
@@ -51,11 +56,18 @@ for i, house in enumerate(s.find_all('li', class_='sold-results__normal-hit')):
     df.loc[i, 'Address'] = findAddress(house).text.strip()
     df.loc[i,'Location'] = findLocation(house).text.strip().replace('\n','') 
     df.loc[i, 'Date of sale'] = findDateOfSale(house)
-    df.loc[i, 'Area'] = findArea(house)
+    df.loc[i, 'Bo area (m²)'], df.loc[i, 'Total Area (m²)'], df.loc[i, 'Rooms']  = findAreaAndRooms(house)
+    df.loc[i, 'Plot Area (m²)'] = house.find('div', class_='sold-property-listing__land-area').text.strip().replace('2&nbsp;','').replace('m² tomt','')
 
 
-test = s.find('div',class_='sold-property-listing__location').find('div').contents[2].text.strip().replace('\n','')
+test = s.find('div', class_='sold-property-listing__subheading sold-property-listing__area').text.replace('\n','').replace(' ','').strip()
+
+#m = re.match(r'\brum\b', test)
 print(df)
+#print(re.search(r'(\d)\s+rum', test).group(1))
+
+
+
 
 
 
